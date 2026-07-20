@@ -131,6 +131,25 @@ class LicenseManager
             ];
         }
 
+        // The offline grace period exists for genuine connectivity failure
+        // (couldn't reach the server at all) — a status_code of null is the
+        // only case that means that. Any actual HTTP response — even an
+        // error one like domain_mismatch/ip_mismatch/activation_not_found —
+        // means the server was reached and gave a definitive answer, which
+        // must not be papered over by falling back to a stale cached
+        // "valid" result from before the rejection (this was exactly the
+        // gap that let an install keep running on a de-whitelisted domain
+        // for up to the grace period after being explicitly rejected).
+        if ($live['status_code'] !== null) {
+            return [
+                'valid' => false,
+                'status' => $live['error'] ?? 'rejected',
+                'source' => 'live',
+                'days_remaining' => null,
+                'data' => null,
+            ];
+        }
+
         $cached = $this->cache->retrieve((string) $this->config['product_id'], (string) $this->activationSecret());
 
         if (! $cached) {
